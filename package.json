@@ -1,0 +1,62 @@
+{
+  "name": "netlify-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for automating Netlify deployment error handling and AI-assisted resolution for DigitalZango brand",
+  "main": "dist/index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rimraf dist",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "netlify",
+    "deployment",
+    "automation",
+    "ai-assistant",
+    "digitalzango",
+    "web-development",
+    "typescript",
+    "error-handling"
+  ],
+  "author": "DigitalZango (Jaimecravid)",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.15.0",
+    "dotenv": "^16.5.0",
+    "netlify": "^22.2.2",
+    "node-fetch": "^3.3.2",
+    "typescript": "^5.8.3",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/node-fetch": "^2.6.12",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.0",
+    "jest": "^30.0.4",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jaimecravid/-netlify-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jaimecravid/-netlify-mcp-server/issues"
+  },
+  "homepage": "https://github.com/Jaimecravid/-netlify-mcp-server#readme"
+}
