@@ -1,192 +1,189 @@
-import { DeploymentInfo } from '../netlify/client.js';
-
-export interface ErrorAnalysis {
+export interface ErrorPattern {
+  pattern: RegExp;
   category: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  description: string;
-  possibleCauses: string[];
-  suggestedSolutions: string[];
-  aiPrompt: string;
+  buildTimeImpact: number; // minutes
+  commonCauses: string[];
+  quickFixes: string[];
+  preventionTips: string[];
 }
 
-export class ErrorAnalyzer {
-  static analyzeDeploymentError(deployment: DeploymentInfo): ErrorAnalysis {
-    const errorMessage = deployment.error_message || '';
-    const state = deployment.state;
+export const NETLIFY_ERROR_PATTERNS: ErrorPattern[] = [
+  {
+    pattern: /npm.*ERR.*peer dep/i,
+    category: 'Dependency Conflict',
+    severity: 'high',
+    buildTimeImpact: 2,
+    commonCauses: ['Peer dependency version mismatch', 'Package.json conflicts'],
+    quickFixes: ['npm install --legacy-peer-deps', 'Update conflicting packages'],
+    preventionTips: ['Regular dependency audits', 'Lock file maintenance']
+  },
+  {
+    pattern: /out of memory|heap.*limit/i,
+    category: 'Memory Limit',
+    severity: 'critical',
+    buildTimeImpact: 5,
+    commonCauses: ['Large bundle size', 'Memory-intensive build process'],
+    quickFixes: ['Increase Node memory limit', 'Optimize bundle splitting'],
+    preventionTips: ['Bundle analysis', 'Code splitting', 'Image optimization']
+  },
+  {
+    pattern: /command not found.*gatsby|hugo|next/i,
+    category: 'Build Tool Missing',
+    severity: 'high',
+    buildTimeImpact: 1,
+    commonCauses: ['Missing build dependencies', 'Incorrect build command'],
+    quickFixes: ['Update package.json scripts', 'Install missing dependencies'],
+    preventionTips: ['Verify build commands locally', 'Document build requirements']
+  },
+  {
+    pattern: /failed to fetch|network error|timeout/i,
+    category: 'Network Issue',
+    severity: 'medium',
+    buildTimeImpact: 3,
+    commonCauses: ['External API unavailable', 'DNS resolution issues', 'CDN problems'],
+    quickFixes: ['Retry build', 'Check external service status', 'Implement fallbacks'],
+    preventionTips: ['Add retry logic', 'Monitor external dependencies', 'Use CDN alternatives']
+  },
+  {
+    pattern: /typescript.*error|ts\(\d+\)/i,
+    category: 'TypeScript Error',
+    severity: 'high',
+    buildTimeImpact: 2,
+    commonCauses: ['Type definition issues', 'Strict mode violations', 'Missing type declarations'],
+    quickFixes: ['Fix type annotations', 'Update @types packages', 'Add type assertions'],
+    preventionTips: ['Enable strict TypeScript checking', 'Regular type audits', 'Use proper typing']
+  },
+  {
+    pattern: /next.*build.*failed|next.*error/i,
+    category: 'Next.js Build Error',
+    severity: 'high',
+    buildTimeImpact: 3,
+    commonCauses: ['Invalid Next.js configuration', 'Build optimization issues', 'Static generation errors'],
+    quickFixes: ['Check next.config.js', 'Update Next.js version', 'Fix static props'],
+    preventionTips: ['Test builds locally', 'Monitor Next.js updates', 'Validate configurations']
+  },
+  {
+    pattern: /eslint.*error|linting.*failed/i,
+    category: 'Linting Error',
+    severity: 'medium',
+    buildTimeImpact: 1,
+    commonCauses: ['Code style violations', 'ESLint configuration issues', 'Deprecated rules'],
+    quickFixes: ['Fix linting errors', 'Update ESLint config', 'Disable problematic rules'],
+    preventionTips: ['Pre-commit hooks', 'IDE linting integration', 'Regular rule updates']
+  }
+];
 
-    // Build failure analysis
-    if (state === 'error' || state === 'failed') {
-      return this.categorizeError(errorMessage, deployment);
+export class ErrorPatternAnalyzer {
+  static analyzeError(errorMessage: string, buildLogs: any[]): ErrorPattern | null {
+    for (const pattern of NETLIFY_ERROR_PATTERNS) {
+      if (pattern.pattern.test(errorMessage)) {
+        return pattern;
+      }
     }
-
-    // Timeout or stopped deployments
-    if (state === 'stopped') {
-      return {
-        category: 'Build Timeout',
-        severity: 'medium',
-        description: 'Deployment was stopped, possibly due to timeout or manual cancellation',
-        possibleCauses: [
-          'Build process exceeded time limit',
-          'Manual cancellation',
-          'Resource constraints',
-          'Infinite loops in build script'
-        ],
-        suggestedSolutions: [
-          'Optimize build process for faster execution',
-          'Check for infinite loops in build scripts',
-          'Reduce build complexity',
-          'Contact support if issue persists'
-        ],
-        aiPrompt: `Analyze this Netlify deployment that was stopped: ${JSON.stringify(deployment, null, 2)}. Provide specific recommendations for optimizing the build process.`
-      };
-    }
-
-    return {
-      category: 'Unknown Error',
-      severity: 'medium',
-      description: 'Deployment failed with unknown error',
-      possibleCauses: ['Unspecified build failure'],
-      suggestedSolutions: ['Check build logs for more details'],
-      aiPrompt: `Analyze this Netlify deployment error: ${JSON.stringify(deployment, null, 2)}. What could be causing this issue?`
-    };
+    return null;
   }
 
-  private static categorizeError(errorMessage: string, deployment: DeploymentInfo): ErrorAnalysis {
-    const lowerError = errorMessage.toLowerCase();
+  static generateAIPrompt(error: ErrorPattern, context: any): string {
+    return `NETLIFY BUILD ERROR ANALYSIS FOR DIGITALZANGO
 
-    // Dependency errors
-    if (lowerError.includes('npm') || lowerError.includes('yarn') || lowerError.includes('package')) {
-      return {
-        category: 'Dependency Error',
-        severity: 'high',
-        description: 'Build failed due to dependency installation or resolution issues',
-        possibleCauses: [
-          'Missing dependencies in package.json',
-          'Version conflicts between packages',
-          'npm/yarn cache corruption',
-          'Network issues during installation'
-        ],
-        suggestedSolutions: [
-          'Clear npm/yarn cache and reinstall dependencies',
-          'Update package.json with correct versions',
-          'Use npm audit fix to resolve vulnerabilities',
-          'Check for peer dependency conflicts'
-        ],
-        aiPrompt: `This Netlify build failed with dependency issues: ${errorMessage}. Deployment details: ${JSON.stringify(deployment, null, 2)}. What specific dependency problem is this and how can it be fixed?`
-      };
-    }
+Error Category: ${error.category}
+Severity: ${error.severity}
+Build Time Impact: ${error.buildTimeImpact} minutes
 
-    // Build command errors
-    if (lowerError.includes('command not found') || lowerError.includes('script')) {
-      return {
-        category: 'Build Command Error',
-        severity: 'high',
-        description: 'Build failed because specified build command was not found or failed',
-        possibleCauses: [
-          'Incorrect build command in Netlify settings',
-          'Missing build script in package.json',
-          'Wrong base directory configuration',
-          'Build tool not installed'
-        ],
-        suggestedSolutions: [
-          'Verify build command matches package.json scripts',
-          'Check base directory settings in Netlify',
-          'Ensure build dependencies are installed',
-          'Test build command locally first'
-        ],
-        aiPrompt: `This Netlify build failed with command issues: ${errorMessage}. Deployment: ${JSON.stringify(deployment, null, 2)}. What build command configuration needs to be fixed?`
-      };
-    }
+Context:
+- Site: DigitalZango Agricultural Calendar
+- Build Minutes Remaining: ${context.buildMinutesRemaining || 'Unknown'}
+- Recent Failure Rate: ${context.failureRate || 'Unknown'}%
+- Project Type: Next.js + TypeScript Agricultural Calendar App
 
-    // Environment/Node version errors
-    if (lowerError.includes('node') || lowerError.includes('version') || lowerError.includes('engine')) {
-      return {
-        category: 'Environment Error',
-        severity: 'medium',
-        description: 'Build failed due to Node.js version or environment mismatch',
-        possibleCauses: [
-          'Node.js version mismatch between local and Netlify',
-          'Missing environment variables',
-          'Incompatible Node.js version for dependencies',
-          'Missing .nvmrc file'
-        ],
-        suggestedSolutions: [
-          'Add .nvmrc file with correct Node version',
-          'Set NODE_VERSION environment variable in Netlify',
-          'Update dependencies for current Node version',
-          'Check environment variables are set correctly'
-        ],
-        aiPrompt: `This Netlify build failed with environment issues: ${errorMessage}. Deployment: ${JSON.stringify(deployment, null, 2)}. What environment configuration needs to be adjusted?`
-      };
-    }
+Quick Fixes Available:
+${error.quickFixes.map(fix => `• ${fix}`).join('\n')}
 
-    // File/path errors
-    if (lowerError.includes('file') || lowerError.includes('path') || lowerError.includes('directory')) {
-      return {
-        category: 'File System Error',
-        severity: 'medium',
-        description: 'Build failed due to missing files or incorrect paths',
-        possibleCauses: [
-          'Case sensitivity issues (local vs Netlify)',
-          'Missing files in repository',
-          'Incorrect file paths in imports',
-          'Gitignore excluding required files'
-        ],
-        suggestedSolutions: [
-          'Check file name casing matches exactly',
-          'Verify all required files are committed',
-          'Review .gitignore for excluded build files',
-          'Test build in case-sensitive environment'
-        ],
-        aiPrompt: `This Netlify build failed with file system issues: ${errorMessage}. Deployment: ${JSON.stringify(deployment, null, 2)}. What file or path problem needs to be resolved?`
-      };
-    }
+Common Causes:
+${error.commonCauses.map(cause => `• ${cause}`).join('\n')}
 
-    // Generic error fallback
-    return {
-      category: 'Build Error',
-      severity: 'medium',
-      description: 'Build failed with unspecified error',
-      possibleCauses: [
-        'Code compilation errors',
-        'Build script failures',
-        'Configuration issues'
-      ],
-      suggestedSolutions: [
-        'Review complete build logs',
-        'Test build process locally',
-        'Check recent code changes'
-      ],
-      aiPrompt: `This Netlify build failed: ${errorMessage}. Deployment details: ${JSON.stringify(deployment, null, 2)}. Please analyze this error and provide specific solutions.`
-    };
+Prevention Tips:
+${error.preventionTips.map(tip => `• ${tip}`).join('\n')}
+
+Please provide:
+1. Root cause analysis for this specific error
+2. Step-by-step fix implementation for Next.js/TypeScript project
+3. Prevention strategy for future builds
+4. Build time optimization recommendations for agricultural calendar app
+5. Specific considerations for Angola deployment context
+    `.trim();
   }
 
-  static formatErrorForAI(deployment: DeploymentInfo, analysis: ErrorAnalysis): string {
+  static categorizeErrors(buildLogs: any[]): {
+    critical: ErrorPattern[];
+    high: ErrorPattern[];
+    medium: ErrorPattern[];
+    low: ErrorPattern[];
+    unrecognized: string[];
+  } {
+    const categorized = {
+      critical: [] as ErrorPattern[],
+      high: [] as ErrorPattern[],
+      medium: [] as ErrorPattern[],
+      low: [] as ErrorPattern[],
+      unrecognized: [] as string[]
+    };
+
+    const errorLogs = buildLogs.filter(log => log.level === 'error');
+    
+    errorLogs.forEach(log => {
+      const pattern = this.analyzeError(log.message, buildLogs);
+      if (pattern) {
+        categorized[pattern.severity].push(pattern);
+      } else {
+        categorized.unrecognized.push(log.message);
+      }
+    });
+
+    return categorized;
+  }
+
+  static calculateTotalBuildTimeImpact(errors: ErrorPattern[]): number {
+    return errors.reduce((total, error) => total + error.buildTimeImpact, 0);
+  }
+
+  static generateSummaryReport(buildLogs: any[], buildMetrics: any): string {
+    const categorized = this.categorizeErrors(buildLogs);
+    const totalImpact = this.calculateTotalBuildTimeImpact([
+      ...categorized.critical,
+      ...categorized.high,
+      ...categorized.medium,
+      ...categorized.low
+    ]);
+
     return `
-NETLIFY DEPLOYMENT ERROR ANALYSIS
+DIGITALZANGO BUILD ERROR SUMMARY REPORT
 
-Site: ${deployment.deploy_url || 'Unknown'}
-Deployment ID: ${deployment.id}
-State: ${deployment.state}
-Branch: ${deployment.branch || 'Unknown'}
-Commit: ${deployment.commit_ref || 'Unknown'}
-Created: ${deployment.created_at}
+Build Metrics:
+- Build Minutes Used: ${buildMetrics.buildMinutesUsed || 'Unknown'}
+- Monthly Limit Remaining: ${buildMetrics.monthlyLimitRemaining || 'Unknown'}
+- Failure Rate: ${buildMetrics.failureRate || 'Unknown'}%
 
-ERROR CATEGORY: ${analysis.category}
-SEVERITY: ${analysis.severity}
+Error Analysis:
+- Critical Errors: ${categorized.critical.length}
+- High Priority: ${categorized.high.length}
+- Medium Priority: ${categorized.medium.length}
+- Low Priority: ${categorized.low.length}
+- Unrecognized: ${categorized.unrecognized.length}
 
-DESCRIPTION: ${analysis.description}
+Estimated Build Time Impact: ${totalImpact} minutes
 
-ERROR MESSAGE: ${deployment.error_message || 'No specific error message'}
+Priority Actions:
+${categorized.critical.length > 0 ? '🚨 CRITICAL: Address memory/system issues immediately' : ''}
+${categorized.high.length > 0 ? '⚠️ HIGH: Fix dependency and build tool issues' : ''}
+${categorized.medium.length > 0 ? '📋 MEDIUM: Resolve network and configuration issues' : ''}
 
-POSSIBLE CAUSES:
-${analysis.possibleCauses.map(cause => `• ${cause}`).join('\n')}
-
-SUGGESTED SOLUTIONS:
-${analysis.suggestedSolutions.map(solution => `• ${solution}`).join('\n')}
-
-CONTEXT FOR AI ANALYSIS:
-${analysis.aiPrompt}
+Next Steps:
+1. Address critical errors first to prevent build failures
+2. Implement prevention strategies for recurring issues
+3. Monitor build minute usage to stay within free tier limits
+4. Set up automated error detection for agricultural calendar deployments
     `.trim();
   }
 }
