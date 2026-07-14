@@ -1,6 +1,6 @@
 # DigitalZango Netlify Model Context Protocol (MCP) Server 🌐🤖
 
-A high-performance, custom Model Context Protocol (MCP) server built with **TypeScript** and **Node.js** using the official `@modelcontextprotocol/sdk`. 
+A custom Model Context Protocol (MCP) server built with **TypeScript** and **Node.js** using the official `@modelcontextprotocol/sdk`. 
 
 This server acts as an intelligent CI/CD and DevOps bridge, empowering LLM agents (such as Claude Desktop, Cursor, or ChatGPT) to monitor, optimize, and programmatically manage Netlify hosting infrastructure. Beyond standard API endpoints, this implementation includes custom diagnostic, performance analysis, and optimization tools tailored for AI-driven development workflows.
 
@@ -17,7 +17,7 @@ This server acts as an intelligent CI/CD and DevOps bridge, empowering LLM agent
 
 ## 🔌 Exposed Tools
 
-The server registers and exposes a powerful suite of 14 tools to connected AI models, categorized below:
+The server registers and exposes a suite of 14 tools to connected AI models, categorized below:
 
 ### 1. Core Operations & Infrastructure Monitoring
 * **`list-sites`**: Retrieves a detailed inventory of Netlify sites under the authenticated account.
